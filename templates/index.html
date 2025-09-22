@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="header">
+    <h1><i class="fas fa-recycle"></i> Waste Management Recycling Rate Predictor</h1>
+    <p class="mb-0">Predict recycling rates for Indian cities using machine learning</p>
+</div>
+
+<div class="form-section">
+    <form method="post" action="/predict-form" id="predictionForm">
+        <div class="row">
+            <!-- City and Waste Type -->
+            <div class="col-md-6 mb-3">
+                <label for="city_district" class="form-label">
+                    <i class="fas fa-city feature-icon"></i>City/District
+                </label>
+                <select class="form-select" id="city_district" name="city_district" required>
+                    <option value="">Select City</option>
+                    <option value="Mumbai">Mumbai</option>
+                    <option value="Delhi">Delhi</option>
+                    <option value="Bangalore">Bangalore</option>
+                    <option value="Chennai">Chennai</option>
+                    <option value="Kolkata">Kolkata</option>
+                    <option value="Hyderabad">Hyderabad</option>
+                    <option value="Pune">Pune</option>
+                    <option value="Ahmedabad">Ahmedabad</option>
+                    <option value="Surat">Surat</option>
+                    <option value="Jaipur">Jaipur</option>
+                    <option value="Lucknow">Lucknow</option>
+                    <option value="Kanpur">Kanpur</option>
+                    <option value="Nagpur">Nagpur</option>
+                    <option value="Indore">Indore</option>
+                    <option value="Thane">Thane</option>
+                    <option value="Bhopal">Bhopal</option>
+                    <option value="Visakhapatnam">Visakhapatnam</option>
+                    <option value="Patna">Patna</option>
+                </select>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <label for="waste_type" class="form-label">
+                    <i class="fas fa-trash feature-icon"></i>Waste Type
+                </label>
+                <select class="form-select" id="waste_type" name="waste_type" required>
+                    <option value="">Select Waste Type</option>
+                    <option value="Plastic">Plastic</option>
+                    <option value="Organic">Organic</option>
+                    <option value="E-Waste">E-Waste</option>
+                    <option value="Construction">Construction</option>
+                    <option value="Hazardous">Hazardous</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Waste Generation and Population -->
+            <div class="col-md-6 mb-3">
+                <label for="waste_generated" class="form-label">
+                    <i class="fas fa-weight-hanging feature-icon"></i>Waste Generated (Tons/Day)
+                </label>
+                <input type="number" class="form-control" id="waste_generated" name="waste_generated" 
+                       step="0.01" min="0.1" max="1000" required>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <label for="population_density" class="form-label">
+                    <i class="fas fa-users feature-icon"></i>Population Density (People/km²)
+                </label>
+                <input type="number" class="form-control" id="population_density" name="population_density" 
+                       step="0.01" min="100" max="50000" required>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Municipal Efficiency and Disposal Method -->
+            <div class="col-md-6 mb-3">
+                <label for="municipal_efficiency" class="form-label">
+                    <i class="fas fa-chart-line feature-icon"></i>Municipal Efficiency Score (1-10)
+                </label>
+                <select class="form-select" id="municipal_efficiency" name="municipal_efficiency" required>
+                    <option value="">Select Score</option>
+                    <option value="1">1 - Very Poor</option>
+                    <option value="2">2 - Poor</option>
+                    <option value="3">3 - Below Average</option>
+                    <option value="4">4 - Fair</option>
+                    <option value="5">5 - Average</option>
+                    <option value="6">6 - Above Average</option>
+                    <option value="7">7 - Good</option>
+                    <option value="8">8 - Very Good</option>
+                    <option value="9">9 - Excellent</option>
+                    <option value="10">10 - Outstanding</option>
+                </select>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <label for="disposal_method" class="form-label">
+                    <i class="fas fa-truck feature-icon"></i>Disposal Method
+                </label>
+                <select class="form-select" id="disposal_method" name="disposal_method" required>
+                    <option value="">Select Method</option>
+                    <option value="Landfill">Landfill</option>
+                    <option value="Recycling">Recycling</option>
+                    <option value="Incineration">Incineration</option>
+                    <option value="Composting">Composting</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Cost and Campaigns -->
+            <div class="col-md-6 mb-3">
+                <label for="cost_management" class="form-label">
+                    <i class="fas fa-rupee-sign feature-icon"></i>Cost of Waste Management (₹/Ton)
+                </label>
+                <input type="number" class="form-control" id="cost_management" name="cost_management" 
+                       step="0.01" min="500" max="10000" required>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <label for="awareness_campaigns" class="form-label">
+                    <i class="fas fa-bullhorn feature-icon"></i>Awareness Campaigns Count
+                </label>
+                <input type="number" class="form-control" id="awareness_campaigns" name="awareness_campaigns" 
+                       min="0" max="50" required>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Landfill Information -->
+            <div class="col-md-12 mb-3">
+                <label for="landfill_name" class="form-label">
+                    <i class="fas fa-map-marker-alt feature-icon"></i>Landfill Name
+                </label>
+                <select class="form-select" id="landfill_name" name="landfill_name" required>
+                    <option value="">Select Landfill</option>
+                    <option value="Central Landfill">Central Landfill</option>
+                    <option value="East Zone Dump">East Zone Dump</option>
+                    <option value="West Side Facility">West Side Facility</option>
+                    <option value="North Point Landfill">North Point Landfill</option>
+                    <option value="South City Dump">South City Dump</option>
+                    <option value="Metro Waste Site">Metro Waste Site</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Landfill Location -->
+            <div class="col-md-4 mb-3">
+                <label for="landfill_lat" class="form-label">
+                    <i class="fas fa-globe feature-icon"></i>Landfill Latitude
+                </label>
+                <input type="number" class="form-control" id="landfill_lat" name="landfill_lat" 
+                       step="0.000001" min="6" max="38" required>
+            </div>
+            
+            <div class="col-md-4 mb-3">
+                <label for="landfill_long" class="form-label">
+                    <i class="fas fa-globe feature-icon"></i>Landfill Longitude
+                </label>
+                <input type="number" class="form-control" id="landfill_long" name="landfill_long" 
+                       step="0.000001" min="68" max="98" required>
+            </div>
+            
+            <div class="col-md-4 mb-3">
+                <label for="landfill_capacity" class="form-label">
+                    <i class="fas fa-warehouse feature-icon"></i>Landfill Capacity (Tons)
+                </label>
+                <input type="number" class="form-control" id="landfill_capacity" name="landfill_capacity" 
+                       step="0.01" min="1000" max="1000000" required>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Year -->
+            <div class="col-md-6 mb-3">
+                <label for="year" class="form-label">
+                    <i class="fas fa-calendar feature-icon"></i>Year
+                </label>
+                <select class="form-select" id="year" name="year" required>
+                    <option value="">Select Year</option>
+                    <option value="2019">2019</option>
+                    <option value="2020">2020</option>
+                    <option value="2021">2021</option>
+                    <option value="2022">2022</option>
+                    <option value="2023">2023</option>
+                    <option value="2024">2024</option>
+                    <option value="2025">2025</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12 text-center">
+                <button type="submit" class="btn btn-success btn-predict">
+                    <i class="fas fa-brain"></i> Predict Recycling Rate
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-populate coordinates based on city selection
+    document.getElementById('city_district').addEventListener('change', function() {
+        const city = this.value;
+        const latInput = document.getElementById('landfill_lat');
+        const longInput = document.getElementById('landfill_long');
+        
+        const cityCoords = {
+            'Mumbai': [19.0760, 72.8777],
+            'Delhi': [28.7041, 77.1025],
+            'Bangalore': [12.9716, 77.5946],
+            'Chennai': [13.0827, 80.2707],
+            'Kolkata': [22.5726, 88.3639],
+            'Hyderabad': [17.3850, 78.4867],
+            'Pune': [18.5204, 73.8567],
+            'Ahmedabad': [23.0225, 72.5714],
+            'Surat': [21.1702, 72.8311],
+            'Jaipur': [26.9124, 75.7873],
+            'Lucknow': [26.8467, 80.9462],
+            'Kanpur': [26.4499, 80.3319],
+            'Nagpur': [21.1458, 79.0882],
+            'Indore': [22.7196, 75.8577],
+            'Thane': [19.2183, 72.9781],
+            'Bhopal': [23.2599, 77.4126],
+            'Visakhapatnam': [17.6868, 83.2185],
+            'Patna': [25.5941, 85.1376]
+        };
+        
+        if (cityCoords[city]) {
+            latInput.value = cityCoords[city][0];
+            longInput.value = cityCoords[city][1];
+        }
+    });
+    
+    // Form validation and submission
+    document.getElementById('predictionForm').addEventListener('submit', function(e) {
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        submitBtn.disabled = true;
+    });
+</script>
+{% endblock %}

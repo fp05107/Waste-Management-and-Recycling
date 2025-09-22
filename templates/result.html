@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="header">
+    <h1><i class="fas fa-chart-bar"></i> Prediction Results</h1>
+    <p class="mb-0">Recycling rate prediction for your waste management scenario</p>
+</div>
+
+<div class="form-section">
+    <div class="row">
+        <!-- Main Result Card -->
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <div class="alert alert-success" role="alert">
+                        <h2 class="alert-heading">
+                            <i class="fas fa-recycle"></i> Predicted Recycling Rate
+                        </h2>
+                        <hr>
+                        <h1 class="display-3 text-success">{{ prediction }}%</h1>
+                        <p class="mb-0">
+                            For <strong>{{ waste_type }}</strong> waste in <strong>{{ city_district }}</strong>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Input Summary -->
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle"></i> Input Parameters Summary
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span><i class="fas fa-city feature-icon"></i>City/District:</span>
+                                    <strong>{{ input_data['City/District'] }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span><i class="fas fa-trash feature-icon"></i>Waste Type:</span>
+                                    <strong>{{ input_data['Waste Type'] }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span><i class="fas fa-weight-hanging feature-icon"></i>Waste Generated:</span>
+                                    <strong>{{ input_data['Waste Generated (Tons/Day)'] }} tons/day</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span><i class="fas fa-users feature-icon"></i>Population Density:</span>
+                                    <strong>{{ input_data['Population Density (People/km²)'] }} people/km²</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span><i class="fas fa-chart-line feature-icon"></i>Municipal Efficiency:</span>
+                                    <strong>{{ input_data['Municipal Efficiency Score (1-10)'] }}/10</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span><i class="fas fa-truck feature-icon"></i>Disposal Method:</span>
+                                    <strong>{{ input_data['Disposal Method'] }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span><i class="fas fa-calendar feature-icon"></i>Year:</span>
+                                    <strong>{{ input_data['Year'] }}</strong>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span><i class="fas fa-rupee-sign feature-icon"></i>Cost per Ton:</span>
+                                    <strong>₹{{ input_data['Cost of Waste Management (₹/Ton)'] }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span><i class="fas fa-bullhorn feature-icon"></i>Awareness Campaigns:</span>
+                                    <strong>{{ input_data['Awareness Campaigns Count'] }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span><i class="fas fa-map-marker-alt feature-icon"></i>Landfill Name:</span>
+                                    <strong>{{ input_data['Landfill Name'] }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span><i class="fas fa-globe feature-icon"></i>Landfill Location:</span>
+                                    <strong>{{ input_data['Landfill Location (Lat)'] }}, {{ input_data['Landfill Location (Long)'] }}</strong>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span><i class="fas fa-warehouse feature-icon"></i>Landfill Capacity:</span>
+                                    <strong>{{ input_data['Landfill Capacity (Tons)'] }} tons</strong>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Interpretation and Recommendations -->
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-lightbulb"></i> Interpretation & Recommendations
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if prediction >= 70 %}
+                        <div class="alert alert-success" role="alert">
+                            <h6><i class="fas fa-thumbs-up"></i> Excellent Recycling Performance</h6>
+                            <p class="mb-0">
+                                The predicted recycling rate of {{ prediction }}% indicates excellent waste management practices. 
+                                This city is likely achieving sustainable waste management goals with effective municipal systems.
+                            </p>
+                        </div>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success"></i> Continue current waste management practices</li>
+                            <li><i class="fas fa-check text-success"></i> Share best practices with other municipalities</li>
+                            <li><i class="fas fa-check text-success"></i> Focus on maintaining high efficiency standards</li>
+                        </ul>
+                    {% elif prediction >= 50 %}
+                        <div class="alert alert-warning" role="alert">
+                            <h6><i class="fas fa-balance-scale"></i> Moderate Recycling Performance</h6>
+                            <p class="mb-0">
+                                The predicted recycling rate of {{ prediction }}% shows moderate performance with room for improvement. 
+                                Consider implementing targeted strategies to boost recycling rates.
+                            </p>
+                        </div>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-arrow-up text-warning"></i> Increase awareness campaigns</li>
+                            <li><i class="fas fa-arrow-up text-warning"></i> Improve municipal efficiency scores</li>
+                            <li><i class="fas fa-arrow-up text-warning"></i> Optimize disposal methods for better recycling</li>
+                        </ul>
+                    {% else %}
+                        <div class="alert alert-danger" role="alert">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Low Recycling Performance</h6>
+                            <p class="mb-0">
+                                The predicted recycling rate of {{ prediction }}% indicates significant room for improvement. 
+                                Urgent action is needed to enhance waste management systems and practices.
+                            </p>
+                        </div>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-exclamation text-danger"></i> Increase municipal efficiency investment</li>
+                            <li><i class="fas fa-exclamation text-danger"></i> Launch intensive awareness campaigns</li>
+                            <li><i class="fas fa-exclamation text-danger"></i> Review and optimize disposal methods</li>
+                            <li><i class="fas fa-exclamation text-danger"></i> Consider policy interventions</li>
+                        </ul>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="row">
+        <div class="col-12 text-center">
+            <a href="/" class="btn btn-primary me-3">
+                <i class="fas fa-arrow-left"></i> Make Another Prediction
+            </a>
+            <button class="btn btn-success" onclick="window.print()">
+                <i class="fas fa-print"></i> Print Results
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Print-specific styling
+    window.addEventListener('beforeprint', function() {
+        document.body.style.background = 'white';
+        document.querySelector('.main-container').style.boxShadow = 'none';
+    });
+    
+    window.addEventListener('afterprint', function() {
+        document.body.style.background = '';
+        document.querySelector('.main-container').style.boxShadow = '';
+    });
+</script>
+{% endblock %}
