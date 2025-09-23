@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi import Request
+from src.utils.helpers import validate_input_data, predict_single, calculate_confidence_interval
 
 # Import preprocessing function
 from src.data.preprocess import preprocess_data
@@ -111,61 +112,90 @@ async def health_check():
         "preprocessor_loaded": preprocessor is not None
     }
 
+# @app.post("/predict", response_model=PredictionResponse)
+# async def predict_single(data: WasteData):
+#     """
+#     Predict recycling rate for a single data point
+#     """
+#     if model is None or preprocessor is None:
+#         raise HTTPException(status_code=503, detail="Model not loaded")
+    
+#     try:
+#         # Convert to DataFrame
+#         input_dict = data.dict()
+        
+#         # Convert to match training data column names
+#         formatted_dict = {
+#             'City/District': input_dict['City_District'],
+#             'Waste Type': input_dict['Waste_Type'],
+#             'Waste Generated (Tons/Day)': input_dict['Waste_Generated_Tons_Day'],
+#             'Population Density (People/km²)': input_dict['Population_Density_People_km2'],
+#             'Municipal Efficiency Score (1-10)': input_dict['Municipal_Efficiency_Score'],
+#             'Cost of Waste Management (₹/Ton)': input_dict['Cost_of_Waste_Management_Rs_Ton'],
+#             'Awareness Campaigns Count': input_dict['Awareness_Campaigns_Count'],
+#             'Landfill Name': input_dict['Landfill_Name'],
+#             'Landfill Location (Lat, Long)': input_dict['Landfill_Location_Lat_Long'],
+#             'Landfill Capacity (Tons)': input_dict['Landfill_Capacity_Tons'],
+#             'Year': input_dict['Year']
+#         }
+        
+#         input_df = pd.DataFrame([formatted_dict])
+        
+#         # Preprocess the input
+#         X_processed, _, _ = preprocess_data(input_df, is_training=False, preprocessor=preprocessor)
+        
+#         # Make prediction
+#         prediction = model.predict(X_processed)[0]
+        
+#         # Calculate confidence interval (simplified based on RMSE)
+#         confidence_margin = 2.71  # Based on your RMSE of 2.71
+#         lower_bound = max(0, prediction - confidence_margin)
+#         upper_bound = min(100, prediction + confidence_margin)
+        
+#         return PredictionResponse(
+#             prediction_id=f"pred_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+#             timestamp=datetime.now().isoformat(),
+#             predicted_recycling_rate=round(prediction, 2),
+#             confidence_interval={
+#                 "lower_bound": round(lower_bound, 2),
+#                 "upper_bound": round(upper_bound, 2)
+#             },
+#             model_version="1.0.0"
+#         )
+        
+#     except Exception as e:
+#         print(f"------------{e}")
+#         raise HTTPException(status_code=400, detail=f"Prediction failed: {str(e)}")
+
+
 @app.post("/predict", response_model=PredictionResponse)
-async def predict_single(data: WasteData):
-    """
-    Predict recycling rate for a single data point
-    """
+async def predict_single_endpoint(data: WasteData):
     if model is None or preprocessor is None:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+        raise HTTPException(status_code=503, detail="Service unavailable - model not loaded")
     
     try:
-        # Convert to DataFrame
-        input_dict = data.dict()
+        # Validate input
+        if not validate_input_data(data.dict()):
+            raise HTTPException(status_code=400, detail="Invalid input data")
         
-        # Convert to match training data column names
-        formatted_dict = {
-            'City/District': input_dict['City_District'],
-            'Waste Type': input_dict['Waste_Type'],
-            'Waste Generated (Tons/Day)': input_dict['Waste_Generated_Tons_Day'],
-            'Population Density (People/km²)': input_dict['Population_Density_People_km2'],
-            'Municipal Efficiency Score (1-10)': input_dict['Municipal_Efficiency_Score'],
-            'Cost of Waste Management (₹/Ton)': input_dict['Cost_of_Waste_Management_Rs_Ton'],
-            'Awareness Campaigns Count': input_dict['Awareness_Campaigns_Count'],
-            'Landfill Name': input_dict['Landfill_Name'],
-            'Landfill Location (Lat, Long)': input_dict['Landfill_Location_Lat_Long'],
-            'Landfill Capacity (Tons)': input_dict['Landfill_Capacity_Tons'],
-            'Year': input_dict['Year']
-        }
+        # Make prediction using helper function
+        prediction = predict_single(model, preprocessor, data.dict())
         
-        input_df = pd.DataFrame([formatted_dict])
-        
-        # Preprocess the input
-        X_processed, _, _ = preprocess_data(input_df, is_training=False, preprocessor=preprocessor)
-        
-        # Make prediction
-        prediction = model.predict(X_processed)[0]
-        
-        # Calculate confidence interval (simplified based on RMSE)
-        confidence_margin = 2.71  # Based on your RMSE of 2.71
-        lower_bound = max(0, prediction - confidence_margin)
-        upper_bound = min(100, prediction + confidence_margin)
-        
+        # Calculate confidence interval
+        confidence = calculate_confidence_interval(prediction)
+                
         return PredictionResponse(
             prediction_id=f"pred_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
             timestamp=datetime.now().isoformat(),
-            predicted_recycling_rate=round(prediction, 2),
-            confidence_interval={
-                "lower_bound": round(lower_bound, 2),
-                "upper_bound": round(upper_bound, 2)
-            },
+            predicted_recycling_rate=prediction,
+            confidence_interval=confidence,
             model_version="1.0.0"
         )
         
     except Exception as e:
-        print(f"------------{e}")
-        raise HTTPException(status_code=400, detail=f"Prediction failed: {str(e)}")
-
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    
 @app.post("/predict/batch", response_model=BatchPredictionResponse)
 async def predict_batch(request: BatchPredictionRequest):
     """
