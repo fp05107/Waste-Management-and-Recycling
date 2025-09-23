@@ -1,143 +1,113 @@
+# src/data/preprocess.py
 import pandas as pd
 import numpy as np
-import random
-import os
-from datetime import datetime, timedelta
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler, TargetEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+import joblib
+from geopy.distance import geodesic
 
-def generate_waste_management_data(n_samples=1000):
-    """Generate synthetic waste management dataset based on hackathon specifications"""
+def preprocess_data(df, is_training=True, target_col='Recycling Rate (%)', preprocessor=None):
     
-    # Define categorical options
-    cities = ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Kolkata', 'Hyderabad', 
-              'Pune', 'Ahmedabad', 'Surat', 'Jaipur', 'Lucknow', 'Kanpur', 
-              'Nagpur', 'Indore', 'Thane', 'Bhopal', 'Visakhapatnam', 'Patna']
+    """
+    Preprocess waste management data for modeling
     
-    waste_types = ['Plastic', 'Organic', 'E-Waste', 'Construction', 'Hazardous']
+    Parameters:
+    - df: Input DataFrame
+    - is_training: Whether this is training data
+    - target_col: Name of the target column
+    - preprocessor: Pre-fitted preprocessor (for inference)
     
-    disposal_methods = ['Landfill', 'Recycling', 'Incineration', 'Composting']
+    Returns:
+    - X_processed: Processed features
+    - y: Target variable (if available)
+    - preprocessor: Fitted preprocessor (if training)
+    """
     
-    landfill_names = ['Central Landfill', 'East Zone Dump', 'West Side Facility', 
-                      'North Point Landfill', 'South City Dump', 'Metro Waste Site']
+    # Feature Engineering - Geospatial Features
+    df_clean = df.copy()
     
-    # Generate random data
-    np.random.seed(42)  # For reproducibility
-    random.seed(42)
-    
-    data = []
-    
-    for i in range(n_samples):
-        city = random.choice(cities)
-        waste_type = random.choice(waste_types)
-        
-        # Generate correlated features
-        population_density = np.random.uniform(1000, 25000)  # People/km²
-        municipal_efficiency = np.random.randint(1, 11)  # 1-10 scale
-        
-        # Waste generation correlated with population density
-        base_waste = population_density / 1000 * np.random.uniform(0.5, 2.0)
-        waste_generated = max(1.0, base_waste + np.random.normal(0, 5))
-        
-        # Recycling rate influenced by municipal efficiency and waste type
-        base_recycling = municipal_efficiency * 5  # Base on efficiency
-        
-        # Adjust for waste type
-        if waste_type == 'Organic':
-            base_recycling += np.random.uniform(10, 25)
-        elif waste_type == 'Plastic':
-            base_recycling += np.random.uniform(5, 20)
-        elif waste_type == 'E-Waste':
-            base_recycling += np.random.uniform(15, 30)
-        elif waste_type == 'Construction':
-            base_recycling += np.random.uniform(20, 40)
-        elif waste_type == 'Hazardous':
-            base_recycling += np.random.uniform(0, 10)
-        
-        # Add noise and ensure valid range
-        recycling_rate = max(5.0, min(95.0, base_recycling + np.random.normal(0, 8)))
-        
-        # Cost correlated with waste type and efficiency
-        base_cost = 1000 + (10 - municipal_efficiency) * 200
-        if waste_type == 'Hazardous':
-            base_cost *= 2.5
-        elif waste_type == 'E-Waste':
-            base_cost *= 1.8
-        elif waste_type == 'Construction':
-            base_cost *= 1.3
-        
-        cost_management = max(500, base_cost + np.random.normal(0, 300))
-        
-        # Other features
-        awareness_campaigns = np.random.poisson(municipal_efficiency)
-        landfill_name = random.choice(landfill_names)
-        
-        # Generate realistic coordinates for Indian cities
-        if city in ['Mumbai', 'Pune', 'Thane']:
-            lat_base, lon_base = 19.0760, 72.8777
-        elif city in ['Delhi']:
-            lat_base, lon_base = 28.7041, 77.1025
-        elif city in ['Bangalore']:
-            lat_base, lon_base = 12.9716, 77.5946
-        elif city in ['Chennai']:
-            lat_base, lon_base = 13.0827, 80.2707
-        elif city in ['Kolkata']:
-            lat_base, lon_base = 22.5726, 88.3639
-        elif city in ['Hyderabad']:
-            lat_base, lon_base = 17.3850, 78.4867
-        else:
-            lat_base, lon_base = 23.0225, 72.5714  # Default to Ahmedabad area
-        
-        # Add small random offset for landfill location
-        landfill_lat = lat_base + np.random.uniform(-0.5, 0.5)
-        landfill_lon = lon_base + np.random.uniform(-0.5, 0.5)
-        
-        landfill_capacity = np.random.uniform(10000, 500000)  # Tons
-        
-        disposal_method = random.choice(disposal_methods)
-        year = random.choice([2019, 2020, 2021, 2022, 2023])
-        
-        data.append({
-            'City/District': city,
-            'Waste Type': waste_type,
-            'Waste Generated (Tons/Day)': round(waste_generated, 2),
-            'Recycling Rate (%)': round(recycling_rate, 2),
-            'Population Density (People/km²)': round(population_density, 2),
-            'Municipal Efficiency Score (1-10)': municipal_efficiency,
-            'Disposal Method': disposal_method,
-            'Cost of Waste Management (₹/Ton)': round(cost_management, 2),
-            'Awareness Campaigns Count': awareness_campaigns,
-            'Landfill Name': landfill_name,
-            'Landfill Location (Lat)': round(landfill_lat, 6),
-            'Landfill Location (Long)': round(landfill_lon, 6),
-            'Landfill Capacity (Tons)': round(landfill_capacity, 2),
-            'Year': year
-        })
-    
-    return pd.DataFrame(data)
+    # Parse Landfill Location
+    df_clean[['Landfill_Lat', 'Landfill_Lon']] = df_clean['Landfill Location (Lat, Long)'] \
+        .str.split(',', expand=True).astype(float)
 
-def save_dataset(df, filename='waste_management_data.csv'):
-    """Save dataset to data/raw directory"""
-    # Get the project root directory
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(os.path.dirname(current_dir))
-    raw_data_path = os.path.join(project_root, 'data', 'raw', filename)
-    
-    # Ensure directory exists
-    os.makedirs(os.path.dirname(raw_data_path), exist_ok=True)
-    
-    # Save the dataset
-    df.to_csv(raw_data_path, index=False)
-    print(f"Dataset saved to {raw_data_path}")
-    return raw_data_path
+    # Calculate average coordinates for each city
+    city_coords = df_clean.groupby('City/District')[['Landfill_Lat', 'Landfill_Lon']].mean()
 
-if __name__ == "__main__":
-    # Generate dataset
-    df = generate_waste_management_data(1000)
-    
-    # Save to CSV
-    save_dataset(df)
-    print(f"Generated dataset with {len(df)} samples")
-    print(f"Dataset shape: {df.shape}")
-    print("\nDataset preview:")
-    print(df.head())
-    print("\nDataset info:")
-    print(df.info())
+    # Calculate distance from city center to landfill
+    def calculate_distance(row):
+        city = row['City/District']
+        landfill_lat = row['Landfill_Lat']
+        landfill_lon = row['Landfill_Lon']
+        
+        if city in city_coords.index and pd.notna(landfill_lat) and pd.notna(landfill_lon):
+            city_lat = city_coords.loc[city, 'Landfill_Lat']
+            city_lon = city_coords.loc[city, 'Landfill_Lon']
+            return geodesic((city_lat, city_lon), (landfill_lat, landfill_lon)).km
+        return np.nan
+
+    df_clean['Landfill_Distance_km'] = df_clean.apply(calculate_distance, axis=1)
+
+    # Additional Feature Engineering
+    # Waste generation per capita
+    df_clean['Waste_Per_Capita'] = df_clean["Waste Generated (Tons/Day)"] / df_clean["Population Density (People/km²)"]
+
+    # Cost efficiency
+    # df_clean["Cost_Efficiency"] = df_clean['Recycling Rate (%)'] / df_clean['Cost of Waste Management (₹/Ton)']
+
+    # Cost efficiency (only in training when target is available)
+    if is_training and 'Recycling Rate (%)' in df_clean.columns:
+        df_clean["Cost_Efficiency"] = (df_clean['Recycling Rate (%)'] / df_clean['Cost of Waste Management (₹/Ton)']
+    )
+    else:
+        df_clean["Cost_Efficiency"] = np.nan  # placeholder for inference
+
+
+    # Year as Categorical
+    df_clean['Year_Categorical'] = df_clean['Year'].astype('category')
+
+    # Handle Data Leakage - Remove Problematic Features
+    features_to_drop = ['Disposal Method', 'Landfill Location (Lat, Long)']
+    df_final = df_clean.drop(columns=features_to_drop, errors="ignore")
+
+    # Separate features and target
+    if target_col in df_final.columns:
+        y = df_final[target_col].copy()
+        X = df_final.drop(columns=[target_col])
+    else:
+        y = None
+        X = df_final
+
+    # Identify feature types
+    numerical_features = X.select_dtypes(include=[np.number]).columns.tolist()
+    categorical_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
+
+    # Create preprocessing pipeline
+    numerical_pipeline = Pipeline([
+        ('imputer', SimpleImputer(strategy='median')),
+        ('scaler', StandardScaler())
+    ])
+
+    categorical_pipeline = Pipeline([
+        ('imputer', SimpleImputer(strategy='most_frequent')),
+        ('encoder', TargetEncoder(random_state=42))
+    ])
+
+    preprocessor = ColumnTransformer([
+        ('num', numerical_pipeline, numerical_features),
+        ('cat', categorical_pipeline, categorical_features)
+    ])
+
+    # Fit and transform the data
+    if is_training:
+        X_processed = preprocessor.fit_transform(X, y)
+        # Save the preprocessor for future use
+        joblib.dump(preprocessor, '../models/preprocessor.pkl')
+        return X_processed, y, preprocessor
+    else:
+        if preprocessor is None:
+            # Load the pre-fitted preprocessor
+            preprocessor = joblib.load('./models/preprocessor.pkl')
+        X_processed = preprocessor.transform(X)
+        return X_processed, y, preprocessor

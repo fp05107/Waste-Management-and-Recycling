@@ -1,245 +1,441 @@
-{% extends "base.html" %}
-
-{% block content %}
-<div class="header">
-    <h1><i class="fas fa-recycle"></i> Waste Management Recycling Rate Predictor</h1>
-    <p class="mb-0">Predict recycling rates for Indian cities using machine learning</p>
-</div>
-
-<div class="form-section">
-    <form method="post" action="/predict-form" id="predictionForm">
-        <div class="row">
-            <!-- City and Waste Type -->
-            <div class="col-md-6 mb-3">
-                <label for="city_district" class="form-label">
-                    <i class="fas fa-city feature-icon"></i>City/District
-                </label>
-                <select class="form-select" id="city_district" name="city_district" required>
-                    <option value="">Select City</option>
-                    <option value="Mumbai">Mumbai</option>
-                    <option value="Delhi">Delhi</option>
-                    <option value="Bangalore">Bangalore</option>
-                    <option value="Chennai">Chennai</option>
-                    <option value="Kolkata">Kolkata</option>
-                    <option value="Hyderabad">Hyderabad</option>
-                    <option value="Pune">Pune</option>
-                    <option value="Ahmedabad">Ahmedabad</option>
-                    <option value="Surat">Surat</option>
-                    <option value="Jaipur">Jaipur</option>
-                    <option value="Lucknow">Lucknow</option>
-                    <option value="Kanpur">Kanpur</option>
-                    <option value="Nagpur">Nagpur</option>
-                    <option value="Indore">Indore</option>
-                    <option value="Thane">Thane</option>
-                    <option value="Bhopal">Bhopal</option>
-                    <option value="Visakhapatnam">Visakhapatnam</option>
-                    <option value="Patna">Patna</option>
-                </select>
-            </div>
-            
-            <div class="col-md-6 mb-3">
-                <label for="waste_type" class="form-label">
-                    <i class="fas fa-trash feature-icon"></i>Waste Type
-                </label>
-                <select class="form-select" id="waste_type" name="waste_type" required>
-                    <option value="">Select Waste Type</option>
-                    <option value="Plastic">Plastic</option>
-                    <option value="Organic">Organic</option>
-                    <option value="E-Waste">E-Waste</option>
-                    <option value="Construction">Construction</option>
-                    <option value="Hazardous">Hazardous</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="row">
-            <!-- Waste Generation and Population -->
-            <div class="col-md-6 mb-3">
-                <label for="waste_generated" class="form-label">
-                    <i class="fas fa-weight-hanging feature-icon"></i>Waste Generated (Tons/Day)
-                </label>
-                <input type="number" class="form-control" id="waste_generated" name="waste_generated" 
-                       step="0.01" min="0.1" max="1000" required>
-            </div>
-            
-            <div class="col-md-6 mb-3">
-                <label for="population_density" class="form-label">
-                    <i class="fas fa-users feature-icon"></i>Population Density (People/km²)
-                </label>
-                <input type="number" class="form-control" id="population_density" name="population_density" 
-                       step="0.01" min="100" max="50000" required>
-            </div>
-        </div>
-
-        <div class="row">
-            <!-- Municipal Efficiency and Disposal Method -->
-            <div class="col-md-6 mb-3">
-                <label for="municipal_efficiency" class="form-label">
-                    <i class="fas fa-chart-line feature-icon"></i>Municipal Efficiency Score (1-10)
-                </label>
-                <select class="form-select" id="municipal_efficiency" name="municipal_efficiency" required>
-                    <option value="">Select Score</option>
-                    <option value="1">1 - Very Poor</option>
-                    <option value="2">2 - Poor</option>
-                    <option value="3">3 - Below Average</option>
-                    <option value="4">4 - Fair</option>
-                    <option value="5">5 - Average</option>
-                    <option value="6">6 - Above Average</option>
-                    <option value="7">7 - Good</option>
-                    <option value="8">8 - Very Good</option>
-                    <option value="9">9 - Excellent</option>
-                    <option value="10">10 - Outstanding</option>
-                </select>
-            </div>
-            
-            <div class="col-md-6 mb-3">
-                <label for="disposal_method" class="form-label">
-                    <i class="fas fa-truck feature-icon"></i>Disposal Method
-                </label>
-                <select class="form-select" id="disposal_method" name="disposal_method" required>
-                    <option value="">Select Method</option>
-                    <option value="Landfill">Landfill</option>
-                    <option value="Recycling">Recycling</option>
-                    <option value="Incineration">Incineration</option>
-                    <option value="Composting">Composting</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="row">
-            <!-- Cost and Campaigns -->
-            <div class="col-md-6 mb-3">
-                <label for="cost_management" class="form-label">
-                    <i class="fas fa-rupee-sign feature-icon"></i>Cost of Waste Management (₹/Ton)
-                </label>
-                <input type="number" class="form-control" id="cost_management" name="cost_management" 
-                       step="0.01" min="500" max="10000" required>
-            </div>
-            
-            <div class="col-md-6 mb-3">
-                <label for="awareness_campaigns" class="form-label">
-                    <i class="fas fa-bullhorn feature-icon"></i>Awareness Campaigns Count
-                </label>
-                <input type="number" class="form-control" id="awareness_campaigns" name="awareness_campaigns" 
-                       min="0" max="50" required>
-            </div>
-        </div>
-
-        <div class="row">
-            <!-- Landfill Information -->
-            <div class="col-md-12 mb-3">
-                <label for="landfill_name" class="form-label">
-                    <i class="fas fa-map-marker-alt feature-icon"></i>Landfill Name
-                </label>
-                <select class="form-select" id="landfill_name" name="landfill_name" required>
-                    <option value="">Select Landfill</option>
-                    <option value="Central Landfill">Central Landfill</option>
-                    <option value="East Zone Dump">East Zone Dump</option>
-                    <option value="West Side Facility">West Side Facility</option>
-                    <option value="North Point Landfill">North Point Landfill</option>
-                    <option value="South City Dump">South City Dump</option>
-                    <option value="Metro Waste Site">Metro Waste Site</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="row">
-            <!-- Landfill Location -->
-            <div class="col-md-4 mb-3">
-                <label for="landfill_lat" class="form-label">
-                    <i class="fas fa-globe feature-icon"></i>Landfill Latitude
-                </label>
-                <input type="number" class="form-control" id="landfill_lat" name="landfill_lat" 
-                       step="0.000001" min="6" max="38" required>
-            </div>
-            
-            <div class="col-md-4 mb-3">
-                <label for="landfill_long" class="form-label">
-                    <i class="fas fa-globe feature-icon"></i>Landfill Longitude
-                </label>
-                <input type="number" class="form-control" id="landfill_long" name="landfill_long" 
-                       step="0.000001" min="68" max="98" required>
-            </div>
-            
-            <div class="col-md-4 mb-3">
-                <label for="landfill_capacity" class="form-label">
-                    <i class="fas fa-warehouse feature-icon"></i>Landfill Capacity (Tons)
-                </label>
-                <input type="number" class="form-control" id="landfill_capacity" name="landfill_capacity" 
-                       step="0.01" min="1000" max="1000000" required>
-            </div>
-        </div>
-
-        <div class="row">
-            <!-- Year -->
-            <div class="col-md-6 mb-3">
-                <label for="year" class="form-label">
-                    <i class="fas fa-calendar feature-icon"></i>Year
-                </label>
-                <select class="form-select" id="year" name="year" required>
-                    <option value="">Select Year</option>
-                    <option value="2019">2019</option>
-                    <option value="2020">2020</option>
-                    <option value="2021">2021</option>
-                    <option value="2022">2022</option>
-                    <option value="2023">2023</option>
-                    <option value="2024">2024</option>
-                    <option value="2025">2025</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-12 text-center">
-                <button type="submit" class="btn btn-success btn-predict">
-                    <i class="fas fa-brain"></i> Predict Recycling Rate
-                </button>
-            </div>
-        </div>
-    </form>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-    // Auto-populate coordinates based on city selection
-    document.getElementById('city_district').addEventListener('change', function() {
-        const city = this.value;
-        const latInput = document.getElementById('landfill_lat');
-        const longInput = document.getElementById('landfill_long');
-        
-        const cityCoords = {
-            'Mumbai': [19.0760, 72.8777],
-            'Delhi': [28.7041, 77.1025],
-            'Bangalore': [12.9716, 77.5946],
-            'Chennai': [13.0827, 80.2707],
-            'Kolkata': [22.5726, 88.3639],
-            'Hyderabad': [17.3850, 78.4867],
-            'Pune': [18.5204, 73.8567],
-            'Ahmedabad': [23.0225, 72.5714],
-            'Surat': [21.1702, 72.8311],
-            'Jaipur': [26.9124, 75.7873],
-            'Lucknow': [26.8467, 80.9462],
-            'Kanpur': [26.4499, 80.3319],
-            'Nagpur': [21.1458, 79.0882],
-            'Indore': [22.7196, 75.8577],
-            'Thane': [19.2183, 72.9781],
-            'Bhopal': [23.2599, 77.4126],
-            'Visakhapatnam': [17.6868, 83.2185],
-            'Patna': [25.5941, 85.1376]
-        };
-        
-        if (cityCoords[city]) {
-            latInput.value = cityCoords[city][0];
-            longInput.value = cityCoords[city][1];
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waste Management Recycling Rate Predictor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
         }
-    });
-    
-    // Form validation and submission
-    document.getElementById('predictionForm').addEventListener('submit', function(e) {
-        const submitBtn = this.querySelector('button[type="submit"]');
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-        submitBtn.disabled = true;
-    });
-</script>
-{% endblock %}
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .navbar {
+            background: var(--primary-color) !important;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+        }
+        
+        .result-card {
+            background: linear-gradient(45deg, #11998e, #38ef7d);
+            color: white;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, var(--secondary-color), var(--accent-color));
+            border: none;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .feature-icon {
+            font-size: 2.5rem;
+            color: var(--secondary-color);
+            margin-bottom: 1rem;
+        }
+        
+        .prediction-result {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--secondary-color);
+        }
+        
+        .loading-spinner {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-recycle me-2"></i>Waste Management AI
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="#about">About</a>
+                <a class="nav-link" href="/docs" target="_blank">API Docs</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container my-5">
+        <!-- Header -->
+        <div class="row mb-5">
+            <div class="col-12 text-center text-white">
+                <h1 class="display-4 fw-bold mb-3">Recycling Rate Predictor</h1>
+                <p class="lead">AI-powered predictions for waste management efficiency in Indian cities</p>
+                <div class="alert alert-info d-inline-block">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Model Accuracy: 97.3% | RMSE: 2.71
+                </div>
+            </div>
+        </div>
+
+        <!-- Prediction Form -->
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0"><i class="fas fa-calculator me-2"></i>Predict Recycling Rate</h4>
+                    </div>
+                    <div class="card-body">
+                        <form id="predictionForm">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label"><i class="fas fa-city me-2"></i>City/District</label>
+                                        <input type="text" class="form-control" id="city" required 
+                                               placeholder="e.g., Mumbai, Delhi, Bangalore">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label"><i class="fas fa-trash me-2"></i>Waste Type</label>
+                                        <select class="form-select" id="wasteType" required>
+                                            <option value="">Select waste type</option>
+                                            <option value="Plastic">Plastic</option>
+                                            <option value="Organic">Organic</option>
+                                            <option value="E-Waste">E-Waste</option>
+                                            <option value="Construction">Construction</option>
+                                            <option value="Hazardous">Hazardous</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label"><i class="fas fa-weight me-2"></i>Waste Generated (Tons/Day)</label>
+                                        <input type="number" class="form-control" id="wasteGenerated" required 
+                                               min="0" step="0.1" placeholder="2500.5">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label"><i class="fas fa-users me-2"></i>Population Density (People/km²)</label>
+                                        <input type="number" class="form-control" id="populationDensity" required 
+                                               min="0" placeholder="11191">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label"><i class="fas fa-star me-2"></i>Municipal Efficiency Score (1-10)</label>
+                                        <input type="number" class="form-control" id="efficiencyScore" required 
+                                               min="1" max="10" placeholder="7">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label"><i class="fas fa-rupee-sign me-2"></i>Cost of Waste Management (₹/Ton)</label>
+                                        <input type="number" class="form-control" id="cost" required 
+                                               min="0" placeholder="3056">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label"><i class="fas fa-bullhorn me-2"></i>Awareness Campaigns Count</label>
+                                        <input type="number" class="form-control" id="campaigns" required 
+                                               min="0" placeholder="14">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label"><i class="fas fa-map-marker-alt me-2"></i>Year</label>
+                                        <select class="form-select" id="year" required>
+                                            <option value="">Select year</option>
+                                            <option value="2019">2019</option>
+                                            <option value="2020">2020</option>
+                                            <option value="2021">2021</option>
+                                            <option value="2022">2022</option>
+                                            <option value="2023" selected>2023</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label"><i class="fas fa-landmark me-2"></i>Landfill Name</label>
+                                        <input type="text" class="form-control" id="landfillName" required 
+                                               placeholder="e.g., Mumbai Landfill">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label"><i class="fas fa-weight-hanging me-2"></i>Landfill Capacity (Tons)</label>
+                                        <input type="number" class="form-control" id="landfillCapacity" required 
+                                               min="0" placeholder="45575">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="mb-3">
+                                        <label class="form-label"><i class="fas fa-map me-2"></i>Landfill Location (Latitude, Longitude)</label>
+                                        <input type="text" class="form-control" id="landfillLocation" required 
+                                               placeholder="e.g., 19.0760, 72.8777">
+                                        <small class="form-text text-muted">Format: latitude, longitude (e.g., 19.0760, 72.8777)</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <button type="button" class="btn btn-outline-secondary me-md-2" onclick="fillSampleData()">
+                                    <i class="fas fa-vial me-2"></i>Fill Sample Data
+                                </button>
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-bolt me-2"></i>Predict Recycling Rate
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Loading Spinner -->
+                        <div id="loadingSpinner" class="text-center mt-4 loading-spinner">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">AI is analyzing your data...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="card mt-4 d-none">
+                    <div class="card-header result-card">
+                        <h4 class="mb-0"><i class="fas fa-chart-line me-2"></i>Prediction Results</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center mb-4">
+                            <div class="col-md-6">
+                                <div class="prediction-result" id="predictedRate">--%</div>
+                                <p class="text-muted">Predicted Recycling Rate</p>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="bg-light p-3 rounded">
+                                    <h5><i class="fas fa-chart-bar me-2"></i>Confidence Interval</h5>
+                                    <p id="intervalRange" class="mb-0 fs-5">--% to --%</p>
+                                    <small class="text-muted">95% confidence level</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5><i class="fas fa-info-circle me-2"></i>Prediction Details:</h5>
+                                <ul id="predictionDetails" class="list-group">
+                                    <!-- Details will be populated by JavaScript -->
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h5><i class="fas fa-analytics me-2"></i>Model Performance:</h5>
+                                <div class="alert alert-success">
+                                    <strong>Accuracy:</strong> 97.3% (R² Score)<br>
+                                    <strong>Error Margin:</strong> ±2.71% (RMSE)<br>
+                                    <strong>Model:</strong> Gradient Boosting
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Section -->
+                <div id="error" class="alert alert-danger mt-4 d-none" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <span id="errorMessage"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="row mt-5" id="about">
+            <div class="col-12 text-center text-white mb-4">
+                <h2>How It Works</h2>
+                <p class="lead">Advanced AI for Sustainable Waste Management</p>
+            </div>
+            
+            <div class="col-md-3 mb-4">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <div class="feature-icon">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <h5>AI-Powered</h5>
+                        <p>Gradient Boosting algorithm trained on comprehensive waste management data with 97.3% accuracy</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-4">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <div class="feature-icon">
+                            <i class="fas fa-city"></i>
+                        </div>
+                        <h5>City-Specific</h5>
+                        <p>Considers unique characteristics of Indian cities and their waste management infrastructure</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-4">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <div class="feature-icon">
+                            <i class="fas fa-leaf"></i>
+                        </div>
+                        <h5>Sustainability Focus</h5>
+                        <p>Helps optimize recycling efforts and promote sustainable urban development</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-4">
+                <div class="card text-center h-100">
+                    <div class="card-body">
+                        <div class="feature-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <h5>Real-time Predictions</h5>
+                        <p>Instant recycling rate predictions based on current waste management parameters</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white mt-5 py-4">
+        <div class="container text-center">
+            <p>&copy; 2024 Waste Management AI. Built for PWSkills Hackathon.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Get the base URL dynamically
+        const API_BASE_URL = window.location.origin;
+
+        document.getElementById('predictionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Show loading state
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Predicting...';
+            submitBtn.disabled = true;
+            document.getElementById('loadingSpinner').style.display = 'block';
+
+            // Hide previous results/errors
+            document.getElementById('results').classList.add('d-none');
+            document.getElementById('error').classList.add('d-none');
+
+            try {
+                // Prepare data
+                const formData = {
+                    City_District: document.getElementById('city').value,
+                    Waste_Type: document.getElementById('wasteType').value,
+                    Waste_Generated_Tons_Day: parseFloat(document.getElementById('wasteGenerated').value),
+                    Population_Density_People_km2: parseFloat(document.getElementById('populationDensity').value),
+                    Municipal_Efficiency_Score: parseInt(document.getElementById('efficiencyScore').value),
+                    Cost_of_Waste_Management_Rs_Ton: parseFloat(document.getElementById('cost').value),
+                    Awareness_Campaigns_Count: parseInt(document.getElementById('campaigns').value),
+                    Landfill_Name: document.getElementById('landfillName').value,
+                    Landfill_Location_Lat_Long: document.getElementById('landfillLocation').value,
+                    Landfill_Capacity_Tons: parseFloat(document.getElementById('landfillCapacity').value),
+                    Year: parseInt(document.getElementById('year').value)
+                };
+
+                // Make API call
+                const response = await fetch(`${API_BASE_URL}/predict`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `API error: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                // Display results
+                document.getElementById('predictedRate').textContent = `${result.predicted_recycling_rate}%`;
+                document.getElementById('intervalRange').textContent = 
+                    `${result.confidence_interval.lower_bound}% to ${result.confidence_interval.upper_bound}%`;
+
+                // Populate details
+                const detailsList = document.getElementById('predictionDetails');
+                detailsList.innerHTML = `
+                    <li class="list-group-item"><strong>Prediction ID:</strong> ${result.prediction_id}</li>
+                    <li class="list-group-item"><strong>Timestamp:</strong> ${new Date(result.timestamp).toLocaleString()}</li>
+                    <li class="list-group-item"><strong>City:</strong> ${formData.City_District}</li>
+                    <li class="list-group-item"><strong>Waste Type:</strong> ${formData.Waste_Type}</li>
+                    <li class="list-group-item"><strong>Year:</strong> ${formData.Year}</li>
+                    <li class="list-group-item"><strong>Model Version:</strong> ${result.version}</li>
+                `;
+
+                document.getElementById('results').classList.remove('d-none');
+
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = 
+                    `Prediction failed: ${error.message}`;
+                document.getElementById('error').classList.remove('d-none');
+            } finally {
+                // Restore button state
+                submitBtn.innerHTML = '<i class="fas fa-bolt me-2"></i>Predict Recycling Rate';
+                submitBtn.disabled = false;
+                document.getElementById('loadingSpinner').style.display = 'none';
+            }
+        });
+
+        // Fill sample data for testing
+        function fillSampleData() {
+            document.getElementById('city').value = 'Mumbai';
+            document.getElementById('wasteType').value = 'Plastic';
+            document.getElementById('wasteGenerated').value = '2500.5';
+            document.getElementById('populationDensity').value = '11191';
+            document.getElementById('efficiencyScore').value = '7';
+            document.getElementById('cost').value = '3056';
+            document.getElementById('campaigns').value = '14';
+            document.getElementById('landfillName').value = 'Mumbai Landfill';
+            document.getElementById('landfillLocation').value = '19.0760, 72.8777';
+            document.getElementById('landfillCapacity').value = '45575';
+            document.getElementById('year').value = '2023';
+        }
+
+        // Auto-fill sample data on page load for demo
+        window.addEventListener('load', fillSampleData);
+    </script>
+</body>
+</html>

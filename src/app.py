@@ -1,225 +1,266 @@
+# src/app.py
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+import pandas as pd
+import numpy as np
+import joblib
+from typing import List, Optional
 import os
-import sys
-from fastapi import FastAPI, Form, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from datetime import datetime
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
-from typing import Optional
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi import Request
 
-# Add src directory to Python path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(current_dir)
+# Import preprocessing function
+from src.data.preprocess import preprocess_data
 
-# Import from our modules
-from models.predict import WasteManagementPredictor
-from utils.helpers import validate_input_data, format_prediction_result, get_project_root
+app = FastAPI(
+    title="Waste Management Recycling Rate Predictor API",
+    description="A machine learning API to predict recycling rates for Indian cities based on waste management parameters",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
-# Initialize FastAPI app
-app = FastAPI(title="Waste Management Recycling Rate Predictor", version="1.0.0")
+# Add this after creating the FastAPI app, before your routes
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
-# Get project root directory
-project_root = get_project_root()
+# Load model and preprocessor
+try:
+    model = joblib.load('models/final_model.pkl')
+    # model = joblib.load('./final_model.pkl')
+    preprocessor = joblib.load('models/preprocessor.pkl')
 
-# Setup templates and static files
-templates_dir = os.path.join(project_root, "templates")
-templates = Jinja2Templates(directory=templates_dir)
+    print("✅ Model and preprocessor loaded successfully!")
+except Exception as e:
+    print(f"❌ Error loading model: {e}")
+    model = None
+    preprocessor = None
 
-# Setup static files if they exist
-static_dir = os.path.join(project_root, "static")
-if os.path.exists(static_dir):
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+# Pydantic models for request/response validation
+class WasteData(BaseModel):
+    City_District: str = Field(..., description="Name of the city or district")
+    Waste_Type: str = Field(..., description="Type of waste (Plastic, Organic, E-Waste, Construction, Hazardous)")
+    Waste_Generated_Tons_Day: float = Field(..., ge=0, description="Waste generated in tons per day")
+    Population_Density_People_km2: float = Field(..., ge=0, description="Population density in people per km²")
+    Municipal_Efficiency_Score: int = Field(..., ge=1, le=10, description="Municipal efficiency score (1-10)")
+    Cost_of_Waste_Management_Rs_Ton: float = Field(..., ge=0, description="Cost of waste management in ₹ per ton")
+    Awareness_Campaigns_Count: int = Field(..., ge=0, description="Number of awareness campaigns")
+    Landfill_Name: str = Field(..., description="Name of the landfill site")
+    Landfill_Location_Lat_Long: str = Field(..., description="Landfill coordinates as 'lat, long'")
+    Landfill_Capacity_Tons: float = Field(..., ge=0, description="Landfill capacity in tons")
+    Year: int = Field(..., ge=2019, le=2023, description="Year of data (2019-2023)")
 
-# Initialize model
-predictor = WasteManagementPredictor()
-model_ready = False
-
-# Load trained model on startup
-@app.on_event("startup")
-async def load_model():
-    global model_ready
-    model_path = os.path.join(project_root, "models", "trained_model.pkl")
-    
-    if os.path.exists(model_path):
-        try:
-            predictor.load_model(model_path)
-            model_ready = True
-            print("Model loaded successfully!")
-        except Exception as e:
-            print(f"Failed to load model: {e}")
-            model_ready = False
-    else:
-        print(f"Model file not found at {model_path}. Please train the model first.")
-        model_ready = False
-
-# Pydantic model for API requests
-class PredictionRequest(BaseModel):
-    city_district: str
-    waste_type: str
-    waste_generated: float
-    population_density: float
-    municipal_efficiency: int
-    disposal_method: str
-    cost_management: float
-    awareness_campaigns: int
-    landfill_name: str
-    landfill_lat: float
-    landfill_long: float
-    landfill_capacity: float
-    year: int
+    class Config:
+        schema_extra = {
+            "example": {
+                "City_District": "Mumbai",
+                "Waste_Type": "Plastic",
+                "Waste_Generated_Tons_Day": 2500.5,
+                "Population_Density_People_km2": 11191.0,
+                "Municipal_Efficiency_Score": 7,
+                "Cost_of_Waste_Management_Rs_Ton": 3056.0,
+                "Awareness_Campaigns_Count": 14,
+                "Landfill_Name": "Mumbai Landfill",
+                "Landfill_Location_Lat_Long": "19.0760, 72.8777",
+                "Landfill_Capacity_Tons": 45575.0,
+                "Year": 2023
+            }
+        }
 
 class PredictionResponse(BaseModel):
-    recycling_rate: float
-    city_district: str
-    waste_type: str
+    prediction_id: str
+    timestamp: str
+    predicted_recycling_rate: float
+    confidence_interval: dict
+    model_version: str
 
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    """Serve the main HTML interface"""
-    return templates.TemplateResponse("index.html", {"request": request})
+class BatchPredictionRequest(BaseModel):
+    records: List[WasteData]
 
-def prepare_input_data(city_district: str, waste_type: str, waste_generated: float,
-                      population_density: float, municipal_efficiency: int, 
-                      disposal_method: str, cost_management: float,
-                      awareness_campaigns: int, landfill_name: str,
-                      landfill_lat: float, landfill_long: float,
-                      landfill_capacity: float, year: int) -> dict:
-    """Centralized function to prepare input data for prediction"""
-    input_data = {
-        'City/District': city_district,
-        'Waste Type': waste_type,
-        'Waste Generated (Tons/Day)': waste_generated,
-        'Population Density (People/km²)': population_density,
-        'Municipal Efficiency Score (1-10)': municipal_efficiency,
-        'Disposal Method': disposal_method,
-        'Cost of Waste Management (₹/Ton)': cost_management,
-        'Awareness Campaigns Count': awareness_campaigns,
-        'Landfill Name': landfill_name,
-        'Landfill Location (Lat)': landfill_lat,
-        'Landfill Location (Long)': landfill_long,
-        'Landfill Capacity (Tons)': landfill_capacity,
-        'Year': year
+class BatchPredictionResponse(BaseModel):
+    predictions: List[dict]
+    total_records: int
+    average_recycling_rate: float
+
+@app.get("/")
+async def root():
+    """Root endpoint with API information"""
+    return {
+        "message": "Waste Management Recycling Rate Prediction API",
+        "version": "1.0.0",
+        "description": "Predict recycling rates for Indian cities",
+        "endpoints": {
+            "docs": "/docs",
+            "health": "/health",
+            "predict": "/predict",
+            "batch_predict": "/predict/batch"
+        }
     }
-    
-    # Validate input data
-    try:
-        validated_data = validate_input_data(input_data)
-        return validated_data
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@app.post("/predict", response_model=PredictionResponse)
-async def predict_recycling_rate(request: PredictionRequest):
-    """API endpoint for recycling rate prediction"""
-    
-    if not model_ready:
-        raise HTTPException(status_code=503, detail="Model is not ready. Please ensure the model is trained and loaded.")
-    
-    # Prepare input data
-    input_data = prepare_input_data(
-        request.city_district, request.waste_type, request.waste_generated,
-        request.population_density, request.municipal_efficiency,
-        request.disposal_method, request.cost_management,
-        request.awareness_campaigns, request.landfill_name,
-        request.landfill_lat, request.landfill_long,
-        request.landfill_capacity, request.year
-    )
-    
-    # Make prediction
-    try:
-        prediction = predictor.predict(input_data)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
-    
-    return PredictionResponse(
-        recycling_rate=round(float(prediction), 2),
-        city_district=request.city_district,
-        waste_type=request.waste_type
-    )
-
-@app.post("/predict-form")
-async def predict_form(
-    request: Request,
-    city_district: str = Form(...),
-    waste_type: str = Form(...),
-    waste_generated: float = Form(...),
-    population_density: float = Form(...),
-    municipal_efficiency: int = Form(...),
-    disposal_method: str = Form(...),
-    cost_management: float = Form(...),
-    awareness_campaigns: int = Form(...),
-    landfill_name: str = Form(...),
-    landfill_lat: float = Form(...),
-    landfill_long: float = Form(...),
-    landfill_capacity: float = Form(...),
-    year: int = Form(...)
-):
-    """Form-based prediction endpoint"""
-    
-    if not model_ready:
-        return templates.TemplateResponse("error.html", {
-            "request": request,
-            "error_message": "Model is not ready. Please ensure the model is trained and loaded."
-        })
-    
-    # Prepare input data
-    try:
-        input_data = prepare_input_data(
-            city_district, waste_type, waste_generated,
-            population_density, municipal_efficiency,
-            disposal_method, cost_management,
-            awareness_campaigns, landfill_name,
-            landfill_lat, landfill_long,
-            landfill_capacity, year
-        )
-    except HTTPException as e:
-        return templates.TemplateResponse("error.html", {
-            "request": request,
-            "error_message": e.detail
-        })
-    
-    # Make prediction
-    try:
-        prediction = predictor.predict(input_data)
-        prediction_result = round(float(prediction), 2)
-    except Exception as e:
-        return templates.TemplateResponse("error.html", {
-            "request": request,
-            "error_message": f"Prediction failed: {str(e)}"
-        })
-    
-    return templates.TemplateResponse("result.html", {
-        "request": request,
-        "prediction": prediction_result,
-        "city_district": city_district,
-        "waste_type": waste_type,
-        "input_data": input_data
-    })
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    metrics = predictor.get_model_metrics() if model_ready else {}
+    status = "healthy" if model and preprocessor else "unhealthy"
     return {
-        "status": "healthy", 
-        "model_loaded": model_ready,
-        "model_metrics": metrics
+        "status": status,
+        "timestamp": datetime.now().isoformat(),
+        "model_loaded": model is not None,
+        "preprocessor_loaded": preprocessor is not None
     }
 
-@app.get("/model-info")
-async def model_info():
-    """Get model information and performance metrics"""
-    if not model_ready:
-        raise HTTPException(status_code=503, detail="Model is not ready")
+@app.post("/predict", response_model=PredictionResponse)
+async def predict_single(data: WasteData):
+    """
+    Predict recycling rate for a single data point
+    """
+    if model is None or preprocessor is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
     
-    metrics = predictor.get_model_metrics()
+    try:
+        # Convert to DataFrame
+        input_dict = data.dict()
+        
+        # Convert to match training data column names
+        formatted_dict = {
+            'City/District': input_dict['City_District'],
+            'Waste Type': input_dict['Waste_Type'],
+            'Waste Generated (Tons/Day)': input_dict['Waste_Generated_Tons_Day'],
+            'Population Density (People/km²)': input_dict['Population_Density_People_km2'],
+            'Municipal Efficiency Score (1-10)': input_dict['Municipal_Efficiency_Score'],
+            'Cost of Waste Management (₹/Ton)': input_dict['Cost_of_Waste_Management_Rs_Ton'],
+            'Awareness Campaigns Count': input_dict['Awareness_Campaigns_Count'],
+            'Landfill Name': input_dict['Landfill_Name'],
+            'Landfill Location (Lat, Long)': input_dict['Landfill_Location_Lat_Long'],
+            'Landfill Capacity (Tons)': input_dict['Landfill_Capacity_Tons'],
+            'Year': input_dict['Year']
+        }
+        
+        input_df = pd.DataFrame([formatted_dict])
+        
+        # Preprocess the input
+        X_processed, _, _ = preprocess_data(input_df, is_training=False, preprocessor=preprocessor)
+        
+        # Make prediction
+        prediction = model.predict(X_processed)[0]
+        
+        # Calculate confidence interval (simplified based on RMSE)
+        confidence_margin = 2.71  # Based on your RMSE of 2.71
+        lower_bound = max(0, prediction - confidence_margin)
+        upper_bound = min(100, prediction + confidence_margin)
+        
+        return PredictionResponse(
+            prediction_id=f"pred_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            timestamp=datetime.now().isoformat(),
+            predicted_recycling_rate=round(prediction, 2),
+            confidence_interval={
+                "lower_bound": round(lower_bound, 2),
+                "upper_bound": round(upper_bound, 2)
+            },
+            model_version="1.0.0"
+        )
+        
+    except Exception as e:
+        print(f"------------{e}")
+        raise HTTPException(status_code=400, detail=f"Prediction failed: {str(e)}")
+
+@app.post("/predict/batch", response_model=BatchPredictionResponse)
+async def predict_batch(request: BatchPredictionRequest):
+    """
+    Predict recycling rates for multiple data points
+    """
+    if model is None or preprocessor is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    try:
+        # Convert to DataFrame
+        records = []
+        for item in request.records:
+            input_dict = item.dict()
+            formatted_dict = {
+                'City/District': input_dict['City_District'],
+                'Waste Type': input_dict['Waste_Type'],
+                'Waste Generated (Tons/Day)': input_dict['Waste_Generated_Tons_Day'],
+                'Population Density (People/km²)': input_dict['Population_Density_People_km2'],
+                'Municipal Efficiency Score (1-10)': input_dict['Municipal_Efficiency_Score'],
+                'Cost of Waste Management (₹/Ton)': input_dict['Cost_of_Waste_Management_Rs_Ton'],
+                'Awareness Campaigns Count': input_dict['Awareness_Campaigns_Count'],
+                'Landfill Name': input_dict['Landfill_Name'],
+                'Landfill Location (Lat, Long)': input_dict['Landfill_Location_Lat_Long'],
+                'Landfill Capacity (Tons)': input_dict['Landfill_Capacity_Tons'],
+                'Year': input_dict['Year']
+            }
+            records.append(formatted_dict)
+        
+        input_df = pd.DataFrame(records)
+        
+        # Preprocess the input
+        X_processed, _, _ = preprocess_data(input_df, is_training=False, preprocessor=preprocessor)
+        
+        # Make predictions
+        predictions = model.predict(X_processed)
+        
+        # Prepare response
+        results = []
+        for i, (record, pred) in enumerate(zip(request.records, predictions)):
+            results.append({
+                "record_id": i + 1,
+                "city": record.City_District,
+                "waste_type": record.Waste_Type,
+                "predicted_recycling_rate": round(pred, 2),
+                "year": record.Year
+            })
+        
+        avg_rate = np.mean(predictions)
+        
+        return BatchPredictionResponse(
+            predictions=results,
+            total_records=len(results),
+            average_recycling_rate=round(avg_rate, 2)
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Batch prediction failed: {str(e)}")
+
+@app.get("/model/info")
+async def model_info():
+    """Get information about the trained model"""
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    model_type = type(model).__name__
+    model_params = model.get_params() if hasattr(model, 'get_params') else {}
+    
     return {
-        "model_loaded": True,
-        "model_type": "Random Forest Regressor",
-        "target_variable": "Recycling Rate (%)",
-        "metrics": metrics
+        "model_type": model_type,
+        "model_parameters": model_params,
+        "training_metrics": {
+            "test_rmse": 2.71,
+            "test_r2": 0.973,
+            "cv_mean_rmse": 2.94
+        },
+        "feature_count": model.n_features_in_ if hasattr(model, 'n_features_in_') else "Unknown"
     }
+
+# Add these routes to your existing app
+@app.get("/", response_class=HTMLResponse)
+async def serve_ui(request: Request):
+    """Serve the main UI"""
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/ui", response_class=HTMLResponse)
+async def serve_ui_alt(request: Request):
+    """Alternative UI endpoint"""
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/health-ui")
+async def health_ui():
+    """Simple health check page"""
+    return {"status": "healthy", "message": "Waste Management API is running"}
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
